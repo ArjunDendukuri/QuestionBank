@@ -105,7 +105,7 @@ def refined_ss(question: int) -> None:
             pgd.pg.set_cropbox(fitz.Rect(top_left, bottom_right))
         except ValueError:
             why = '\\'  # this exists for some reason
-            print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}"+
+            print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}" +
                   f"Rect: {fitz.Rect(top_left, bottom_right)}")
             break
         pgd.pg.get_pixmap().save(f"{save_dir}/{img_name(question)}.png", output="png")

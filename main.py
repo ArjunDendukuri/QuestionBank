@@ -5,8 +5,8 @@ import tester
 
 dirs_to_make = [
     "downloads", "downloads\\ms", "downloads\\papers",
-    "test", "test\\ms", "test\\ms\\in", "test\\ms\\out", "test\\questions\\in", "test\\questions\\out",
-    "questions"
+    "test", "test\\ms", "test\\ms\\in", "test\\ms\\out", "test\\questions", "test\\questions\\in",
+    "test\\questions\\out", "questions"
 ]
 
 
@@ -18,6 +18,9 @@ def make_base_dirs():
 
 if __name__ == '__main__':
     make_base_dirs()
-    download.run_download()
+    tester.run_white_test()
+    # tester.test_paper()
+    # download.run_download()
+    # print("Downloads Finished!!")
     # paper_manager.run_for_papers()
     print("Done")

@@ -32,9 +32,6 @@ class PaperPage:
     def reset(self):
         self.pg.set_cropbox(self.pg.mediabox)
 
-    def handle_whitespace(self):
-        pass
-
     def is_blank_page(self) -> bool:
         self.pg.set_cropbox(fitz.Rect(blank_page_check[0], blank_page_check[1]))
         tpg = self.pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT)

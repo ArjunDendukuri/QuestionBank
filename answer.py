@@ -82,13 +82,12 @@ def obtain_crop_box(pg: fitz.Page) -> fitz.Rect:
                 finale = fitz.Rect(left_x, y - 7.5, right_x + 5, y + 7.5)
                 pg.set_cropbox(finale)
                 text = [q.strip() for q in pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT).extractText(sort=True).split('\n')
-                        if q.strip()]
+                        if q.strip() and q[0].isdigit()]
                 if len(text) != 0 or pxmp.pixel(current_x+3, y) != (255, 255, 255):
                     y += 20
-                    current_x = left_x + 1
+                    current_x = left_x + 3
                     right_x = 0
                     continue
-                right_x = current_x
         current_x += 1
 
     finale.y0 = y_constants[1]

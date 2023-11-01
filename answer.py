@@ -2,6 +2,7 @@ import fitz
 from time import localtime
 from PIL import Image
 from io import BytesIO
+import re
 
 doc: fitz.Document
 DEFAULT_BOTTOM_POINT: fitz.Point = fitz.Point(560, 800)  # might vary from ms, probably should check it
@@ -57,21 +58,56 @@ def img_name(qs: int) -> str:
     return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]} A{qs}"
 
 
+def obtain_crop_box(pg: fitz.Page) -> fitz.Rect:
+    """Gives you the crop box for the current page"""
+    y_constants = [100, 90, 750]  # 0 -> Start Constant, 90 -> Top Constant, 750 -> Bottom constant
+    y = y_constants[0]
+    left_x = 0
+    right_x = 0
+    current_x = 1
+    pxmp: fitz.Pixmap = pg.get_pixmap()
+    finale: fitz.Rect = pg.mediabox
+
+    while right_x == 0 and current_x < pg.mediabox.x1:
+        clr = pxmp.pixel(current_x, y)
+        if clr != (255, 255, 255):
+            if current_x - left_x < 5:  # resets in case of a seperating line or letter
+                y -= 10
+                current_x = left_x + 1
+                continue
+            if left_x == 0:
+                left_x = current_x
+            else:
+                right_x = current_x
+                finale = fitz.Rect(left_x, y - 7.5, right_x + 5, y + 7.5)
+                pg.set_cropbox(finale)
+                text = [q.strip() for q in pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT).extractText(sort=True).split('\n')
+                        if q.strip()]
+                if len(text) != 0 or pxmp.pixel(current_x+3, y) != (255, 255, 255):
+                    y += 20
+                    current_x = left_x + 1
+                    right_x = 0
+                    continue
+                right_x = current_x
+        current_x += 1
+
+    finale.y0 = y_constants[1]
+    finale.x0 -= 5
+    finale.y1 = y_constants[2]
+    return finale if right_x != 0 else pg.mediabox
+
+
 def get_answer_nums(pg: fitz.Page) -> list[str]:
     pg.set_cropbox(question_column_cropbox)
     tpg = pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT)  # textpage conversion
     text = tpg.extractText(sort=True)  # bcuz of the cropbox all of this should be te numbers
     ans_f = []
     for line in text.split('\n'):
-        if not len(line) > 0 or not line[0].isdigit():
+        match = re.match(r'^\d{1,2}', line)
+        if not match or int(match.group()) < 1:
             continue
-        num = ""
-        c = line[0]
-        i = 0
-        while c.isdigit():
-            num += c
-            i += 1
-            c = line[i]
+        num = match.group()
+
         ans_f.append(num)
 
     return ans_f
@@ -87,6 +123,9 @@ def pos_of_q(q: int, pg: fitz.Page, qs: list[str]) -> fitz.Point:
 
 
 def load_answers():
+    global question_column_cropbox
+    question_column_cropbox = obtain_crop_box(doc[-2])
+
     for pgnum, page in enumerate(doc):
         qs = get_answer_nums(page)
         pos_list = {}
@@ -99,7 +138,6 @@ def load_answers():
 
 
 def answer_ss(question: int):
-    # crop it to question column and then identify the top line for the question
     ms_page: MsPage | None = None
     for pge in answer_index.values():
         if pge.has_question(question):
@@ -123,7 +161,7 @@ def answer_ss(question: int):
     except ValueError:
         why = '\\'  # this exists for some reason
         print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}" +
-              f"Rect: {fitz.Rect(q_top_line,fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y))}")
+              f"Rect: {fitz.Rect(q_top_line, fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y))}")
         return
     ms_page.pg.get_pixmap().save(f"{save_dir}\\{img_name(question)}.png")
     ms_page.reset()
@@ -134,22 +172,22 @@ def handle_multiple_pages(original: MsPage, question: int, top_left: fitz.Point)
     # ss of the orginal question
     original.pg.set_cropbox(fitz.Rect(top_left, DEFAULT_BOTTOM_POINT))
     imgs_to_append.append(Image.open(BytesIO(original.pg.get_pixmap().pil_tobytes(format="PNG"))))
-    
+
     do: MsPage = original.next_page()
     while should_continue_to_next_page(do, question):
         if do.num == original.num:
             continue
         imgs_to_append.append(photo_page(do, question, top_left.x))
         do = do.next_page()
-        
+
     height = sum([img.height for img in imgs_to_append])
     if test:
         print(f"Question {question} height: {height}")
-        
+
     merged = Image.new('RGB', (imgs_to_append[0].width, height))
     for i, img in enumerate(imgs_to_append):
         merged.paste(img, (0, sum([img.height for img in imgs_to_append[:i]])))
-        
+
     if test:
         print(f"Finished {question}")
     merged.save(f"{save_dir}/{img_name(question)}.png")
@@ -166,6 +204,7 @@ def photo_page(mpg: MsPage, q: int, top_left_x: float) -> Image:
         bottom_right = fitz.Point(pg.mediabox.x1, q_pos[1])
     pg.set_cropbox(fitz.Rect(fitz.Point(top_left_x, 0), bottom_right))
     return Image.open(BytesIO(pg.get_pixmap().pil_tobytes(format="PNG")))
+
 
 def should_continue_to_next_page(pg: MsPage | None, ques: int) -> bool:
     return pg is not None and pg.has_question(ques)

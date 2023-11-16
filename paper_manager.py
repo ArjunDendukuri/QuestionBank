@@ -25,8 +25,12 @@ def run_for_answers():
         answer.doc = fitz.open(join(ms_path, ms))
         answer.test = False
         answer.load_answers()
-        for i in range(1, get_number_of_answers(ms) + 1):
-            answer.answer_ss(i)
+        for i in range(1, get_number_of_answers(pdf) + 1):
+            try:
+                question.refined_ss(i)
+            except:
+                print(f"{pdf}/ans{i} didn't work for some reason; skipping doc")
+                break
         answer.doc.close()
 
 
@@ -44,7 +48,11 @@ def run_for_papers():
         question.load_questions()
         question.test = False
         for i in range(1, get_number_of_questions(pdf) + 1):
-            question.refined_ss(i)
+            try:
+                question.refined_ss(i)
+            except:
+                print(f"{pdf}/q{i} didn't work for some reason; skipping doc")
+                break
         question.doc.close()
 
 

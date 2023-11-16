@@ -51,7 +51,7 @@ def crop_white_areas(image: Image, pg: fitz.Page):
     cropped_image = image.crop((x, y, x + test_crop_dim[0], y + test_crop_dim[1]))
 
     # Save the cropped image
-    cropped_image.save(f"{rdir('save')}\\lmao_{time()}.png")
+
 
 
 def run_white_test(pgnum: int = -1):
@@ -60,7 +60,7 @@ def run_white_test(pgnum: int = -1):
         if pnum != pgnum and pgnum != -1:
             continue
         pg.set_cropbox(pg.mediabox)
-        pg.get_pixmap().save(f"{rdir('save')}\\lma_{pnum}.png")
+
         mg: Image = Image.open(io.BytesIO(pg.get_pixmap().pil_tobytes(format="PNG")))
         crop_white_areas(mg, pnum)
 

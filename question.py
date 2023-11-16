@@ -33,7 +33,7 @@ class PaperPage:
         self.pg.set_cropbox(self.pg.mediabox)
 
     def is_blank_page(self) -> bool:
-        self.pg.set_cropbox(fitz.Rect(blank_page_check[0], blank_page_check[1]))
+        self.pg.set_cropbox(fitz.Rect(blank_page_check[0], blank_page_check[1]).normalize())
         tpg = self.pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT)
         return "BLANK PAGE" in tpg.extractText()
 
@@ -58,7 +58,7 @@ def img_name(qs: int) -> str:
         return f"question_{qs}"
     parts: list[str] = save_dir.split("\\")
     if len(parts) == 5:
-        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][8]} Q{qs}"
+        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][9]} Q{qs}"
     return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]} Q{qs}"
 
 
@@ -99,11 +99,11 @@ def refined_ss(question: int) -> None:
             bottom_right = fitz.Point(pgd.pg.mediabox.x1, next_q_pos[1])
 
         try:
-            pgd.pg.set_cropbox(fitz.Rect(top_left, bottom_right))
+            pgd.pg.set_cropbox(fitz.Rect(top_left, bottom_right).normalize())
         except ValueError:
             why = '\\'  # this exists for some reason
             print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}" +
-                  f"Rect: {fitz.Rect(top_left, bottom_right)}")
+                  f"Rect: {fitz.Rect(top_left, bottom_right).normalize()}")
             break
         pgd.pg.get_pixmap().save(f"{save_dir}/{img_name(question)}.png", output="png")
         if test:
@@ -149,7 +149,7 @@ def handle_second_pg(top_left: fitz.Point, pgd: PaperPage, qnum: int):
     pg = pgd.pg
     if pg is None:
         return
-    pg.set_cropbox(fitz.Rect(top_left, pg.mediabox.bottom_right))
+    pg.set_cropbox(fitz.Rect(top_left, pg.mediabox.bottom_right).normalize())
     # images_to_merge.append(Image.open(io.BytesIO(pg.get_pixmap().pil_tobytes(format="PNG"))))
 
     do_pg = pgd
@@ -177,5 +177,5 @@ def photo_till_q(pgd: PaperPage, qnum: int, top_left: float) -> Image:
         bottom_right = pg.mediabox.bottom_right
     else:
         bottom_right = fitz.Point(pg.mediabox.x1, q_pos[1])
-    pg.set_cropbox(fitz.Rect(fitz.Point(top_left, 0), bottom_right))
+    pg.set_cropbox(fitz.Rect(fitz.Point(top_left, 0), bottom_right).normalize())
     return Image.open(io.BytesIO(pg.get_pixmap().pil_tobytes(format="PNG")))

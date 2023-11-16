@@ -1,3 +1,5 @@
+import os.path
+
 import fitz
 from time import localtime
 from PIL import Image
@@ -54,13 +56,13 @@ def img_name(qs: int) -> str:
         return f"answer_{qs}"
     parts: list[str] = save_dir.split("\\")
     if len(parts) == 5:
-        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][8]} A{qs}"
+        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][7]} A{qs}"
     return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]} A{qs}"
 
 
 def obtain_crop_box(pg: fitz.Page) -> fitz.Rect:
     """Gives you the crop box for the current page"""
-    y_constants = [100, 90, 750]  # 0 -> Start Constant, 90 -> Top Constant, 750 -> Bottom constant
+    y_constants = [160, 90, 750]  # 0 -> Start Constant, 90 -> Top Constant, 750 -> Bottom constant
     y = y_constants[0]
     left_x = 0
     right_x = 0
@@ -71,15 +73,16 @@ def obtain_crop_box(pg: fitz.Page) -> fitz.Rect:
     while right_x == 0 and current_x < pg.mediabox.x1:
         clr = pxmp.pixel(current_x, y)
         if clr != (255, 255, 255):
-            if current_x - left_x < 5:  # resets in case of a seperating line or letter
-                y -= 10
+
+            if current_x in range(left_x+3, left_x+6):  # resets in case of a seperating line or letter
+                y = y - 10 if max(y_constants[1], y-10) == y - 10 else 300
                 current_x = left_x + 1
                 continue
             if left_x == 0:
                 left_x = current_x
             else:
                 right_x = current_x
-                finale = fitz.Rect(left_x, y - 7.5, right_x + 5, y + 7.5)
+                finale = fitz.Rect(left_x, y - 7.5, right_x + 5, y + 7.5).normalize()
                 pg.set_cropbox(finale)
                 text = [q.strip() for q in pg.get_textpage(flags=fitz.TEXTFLAGS_TEXT).extractText(sort=True).split('\n')
                         if q.strip() and q[0].isdigit()]
@@ -125,6 +128,7 @@ def load_answers():
     global question_column_cropbox
     question_column_cropbox = obtain_crop_box(doc[-2])
 
+
     for pgnum, page in enumerate(doc):
         qs = get_answer_nums(page)
         pos_list = {}
@@ -156,11 +160,11 @@ def answer_ss(question: int):
         bottom_line_y = DEFAULT_BOTTOM_POINT.y
 
     try:
-        ms_page.pg.set_cropbox(fitz.Rect(q_top_line, fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y)))
+        ms_page.pg.set_cropbox(fitz.Rect(q_top_line, fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y)).normalize())
     except ValueError:
         why = '\\'  # this exists for some reason
-        print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}" +
-              f"Rect: {fitz.Rect(q_top_line, fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y))}")
+        print(f"Failed??? Setting the cropbox for question {question} in pdf {'_'.join(save_dir.split(why)[1:])}\n" +
+              f"Rect: {fitz.Rect(q_top_line, fitz.Point(DEFAULT_BOTTOM_POINT.x, bottom_line_y)).normalize()}")
         return
     ms_page.pg.get_pixmap().save(f"{save_dir}\\{img_name(question)}.png")
     ms_page.reset()
@@ -169,7 +173,7 @@ def answer_ss(question: int):
 def handle_multiple_pages(original: MsPage, question: int, top_left: fitz.Point):
     imgs_to_append = []
     # ss of the orginal question
-    original.pg.set_cropbox(fitz.Rect(top_left, DEFAULT_BOTTOM_POINT))
+    original.pg.set_cropbox(fitz.Rect(top_left, DEFAULT_BOTTOM_POINT).normalize())
     imgs_to_append.append(Image.open(BytesIO(original.pg.get_pixmap().pil_tobytes(format="PNG"))))
 
     do: MsPage = original.next_page()
@@ -201,7 +205,7 @@ def photo_page(mpg: MsPage, q: int, top_left_x: float) -> Image:
         bottom_right = DEFAULT_BOTTOM_POINT
     else:
         bottom_right = fitz.Point(pg.mediabox.x1, q_pos[1])
-    pg.set_cropbox(fitz.Rect(fitz.Point(top_left_x, 0), bottom_right))
+    pg.set_cropbox(fitz.Rect(fitz.Point(top_left_x, 0), bottom_right).normalize())
     return Image.open(BytesIO(pg.get_pixmap().pil_tobytes(format="PNG")))
 
 

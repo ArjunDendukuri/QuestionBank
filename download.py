@@ -1,5 +1,5 @@
 import urllib.request
-from urllib.error import HTTPError
+from urllib.error import HTTPError, ContentTooShortError
 import fitz
 
 HEAD = "https://papers.gceguide.com/Cambridge%20IGCSE/"
@@ -61,7 +61,12 @@ class PaperData:
         opener.addheaders = [('User-agent', 'Mozilla/6.0')]
         urllib.request.install_opener(opener)
         try:
-            urllib.request.urlretrieve(self.link(), f"{save_dir}\\{self.file_name()}")
+            while True:
+                try:
+                    urllib.request.urlretrieve(self.link(), f"{save_dir}\\{self.file_name()}")
+                except ContentTooShortError:
+                    continue
+                break
         except HTTPError:
             print(f"Failed to download {self.file_name()}\nLink: {self.link()}")
             return False

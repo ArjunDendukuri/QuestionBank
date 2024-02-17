@@ -1,12 +1,16 @@
 import download
-from os import path, mkdir
+from os import path, mkdir, listdir
 import paper_manager
 import tester
+from time import time
+
+import answer
+import fitz
 
 dirs_to_make = [
     "downloads", "downloads\\ms", "downloads\\papers",
     "test", "test\\ms", "test\\ms\\in", "test\\ms\\out", "test\\questions", "test\\questions\\in",
-    "test\\questions\\out", "questions"
+    "test\\questions\\out", "saves"
 ]
 
 
@@ -18,9 +22,12 @@ def make_base_dirs():
 
 if __name__ == '__main__':
     make_base_dirs()
-    tester.run_white_test()
-    # tester.test_paper()
+    start = time()
     # download.run_download()
-    # print("Downloads Finished!!")
-    # paper_manager.run_for_papers()
+    # print("Finished Downloads")
+    paper_manager.run_for_papers()
+    print("Finished Papers")
+    paper_manager.run_for_answers()
+
+    print (f"Timey: {time()-start}") #1.7/s paper
     print("Done")

@@ -57,8 +57,9 @@ def img_name(qs: int) -> str:
     if test:
         return f"question_{qs}"
     parts: list[str] = save_dir.split("\\")
-    if len(parts) == 5:
-        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][9]} Q{qs}"
+    # saves\0606\November 2019\Paper 1\Variant 2\
+    if len(parts) == 6: #[606,November 2019, Paper 1, Variant 2]
+        return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]}{parts[4][8]} Q{qs}"
     return f"[{parts[1]}] {parts[2][:3]} '{parts[2].split(' ')[1][2:]} Paper {parts[3][6]} Q{qs}"
 
 

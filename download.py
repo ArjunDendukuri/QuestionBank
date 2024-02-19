@@ -1,8 +1,8 @@
-import urllib.request
-from urllib.error import HTTPError, ContentTooShortError
+import requests
 import fitz
+import os
 
-HEAD = "https://papers.gceguide.com/Cambridge%20IGCSE/"
+HEAD = "https://pastpapers.co/cie/IGCSE/"
 YEAR = (19, 19)  # start year, end year
 
 save_dir = "downloads\\papers"
@@ -13,7 +13,8 @@ def run_download():
     current = to_run.first()
     while current is not None:
         if not current.download():
-            to_run.next_paper(current)
+            if to_run.next_paper(current) is None:
+                break
             continue
 
         touchups = fitz.open(f"{save_dir}\\{current.file_name()}")
@@ -40,6 +41,17 @@ class Series:
         self.year = year
         self.season = season
 
+    def joint_name(self):
+        joint = f"20{self.year}-"
+        match self.season:
+            case "s":
+                joint += "May-June"
+            case "m":
+                joint += "March"
+            case "w":
+                joint += "Oct-Nov"
+        return joint
+
     def __repr__(self):
         return f"{self.season}{self.year}"
 
@@ -56,24 +68,36 @@ class PaperData:
         return MarkSchemeData(self)
 
     def download(self) -> bool:
-        """Downloads the file. Returns boolean on whether it succeeded"""
-        opener = urllib.request.build_opener()
-        opener.addheaders = [('User-agent', 'Mozilla/6.0')]
-        urllib.request.install_opener(opener)
         try:
-            while True:
-                try:
-                    urllib.request.urlretrieve(self.link(), f"{save_dir}\\{self.file_name()}")
-                except ContentTooShortError:
-                    continue
-                break
-        except HTTPError:
-            print(f"Failed to download {self.file_name()}\nLink: {self.link()}")
-            return False
-        return True
+            headers = {
+                'User-Agent': 'Mozilla/5.0',
+                'Referer': f'{self.link()}'
+            }
+
+            response = requests.get(self.link(), headers=headers, stream=True)
+            print(response.content[:128])
+
+            if response.status_code == 200:
+                with open(f'{save_dir}\\{self.file_name()}', 'wb') as file:
+                    for chunk in response.iter_content(chunk_size=128):
+                        file.write(chunk)
+                return True
+
+            elif response.status_code in [401, 403]:
+                print(f"Unauthorized access to {self.link()}")
+                return False
+
+            else:
+                print(f"Failed to download {self.file_name()}\nStatus Code: {response.status_code}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error {e}")
+
+        return False
 
     def link(self) -> str:
-        return f"{HEAD}{'%20'.join(self.name.split(' '))}%20({self.code})/20{self.series.year}/{self.file_name()}"
+        return f"{HEAD}{self.name}-{self.code}/{self.series.joint_name()}/{self.file_name()}"
 
     def file_name(self) -> str:
         return f"{self.code}_{self.series}_qp_{self.paper}{'' if self.variant == 0 else self.variant}.pdf"
@@ -93,27 +117,44 @@ class MarkSchemeData:
                f"{'' if self.paper.variant == 0 else self.paper.variant}.pdf"
 
     def link(self) -> str:
-        return f"{HEAD}{'%20'.join(self.paper.name.split(' '))}" + \
-               f"%20({self.paper.code})/20{self.paper.series.year}/{self.file_name()}"
+        return f"{HEAD}{self.paper.name}-{self.paper.code}/{self.paper.series.joint_name()}/{self.file_name()}"
 
     def __repr__(self):
         return self.file_name()
 
     def download(self) -> bool:
         """Downloads the file. Returns boolean on whether it succeeded"""
-        opener = urllib.request.build_opener()
-        opener.addheaders = [('User-agent', 'Mozilla/6.0')]
-        urllib.request.install_opener(opener)
         try:
-            urllib.request.urlretrieve(self.link(), f"{msave_dir}\\{self.file_name()}")
-        except HTTPError:
-            print(f"Failed to download {self.file_name()}\nLink: {self.paper.link()}")
-            return False
-        return True
+            headers = {
+                'User-Agent': 'Mozilla/5.0',
+                'Referer': f'{self.link()}'
+            }
+
+            response = requests.get(self.link(), headers=headers, stream=True)
+
+
+            if response.status_code == 200:
+                with open(f'{msave_dir}\\{self.file_name()}', 'wb') as file:
+                    for chunk in response.iter_content(chunk_size=128):
+                        file.write(chunk)
+                return True
+
+            elif response.status_code in [401, 403, 404]:
+                print(f"Unauthorized access to {self.link()}")
+                return False
+
+            else:
+                print(f"Failed to download {self.file_name()}\nStatus Code: {response.status_code}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error {e}")
+
+        return False
 
 
 class SubjectData:
-    def __init__(self, papers: list[int], variants: int, seasons: tuple[str, str, str], code: str, name: str,
+    def __init__(self, papers: list[int], variants: int, seasons: list[str], code: str, name: str,
                  red_pages: list[int]):
         self.papers = papers
         self.variants = variants
@@ -148,8 +189,9 @@ class SubjectData:
 
         return None
 
+# https://pastpapers.co/cie/IGCSE/Mathematics-Additional-0606/2022-May-June/0606_s22_ms_12.pdf
+ADDMATH = SubjectData([1, 2], 2, ['m', 's', 'w'], "0606", "Mathematics-Additional", [0, 1])
+ADDMATHT = SubjectData([1, 2], 2, ['s'], "0606", "Mathematics-Additional", [0, 1])
+SCIENCE = SubjectData([2, 4, 6], 2, ['m', 's', 'w'], "0654", "Sciences - Co-ordinated (Double)", [0])
 
-ADDMATH = SubjectData([1, 2], 2, ('m', 's', 'w'), "0606", "Mathematics - Additional", [0, 1])
-SCIENCE = SubjectData([2, 4, 6], 2, ('m', 's', 'w'), "0654", "Sciences - Co-ordinated (Double)", [0])
-
-to_run: SubjectData = ADDMATH
+to_run: SubjectData = ADDMATHT
